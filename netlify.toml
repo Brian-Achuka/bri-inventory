@@ -1,6 +1,7 @@
 [build]
   publish = "public"
   functions = "netlify/functions"
+  command = "echo 'No build step needed'"
 
 [dev]
   command = "npm start"
