@@ -1,0 +1,9 @@
+{
+  "users": [
+    { "username": "admin", "password": "admin123" }
+  ],
+  "items": [
+    { "id": 1, "name": "Widget A", "sku": "WID-001", "quantity": 100, "location": "Warehouse 1", "notes": "Top seller" },
+    { "id": 2, "name": "Widget B", "sku": "WID-002", "quantity": 50, "location": "Warehouse 2", "notes": "Backorder sometimes" }
+  ]
+}

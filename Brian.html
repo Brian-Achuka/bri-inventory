@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABC Company - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">ABC Company IMS</div>
+        <div class="nav-links">
+            <a href="dashboard.html" class="active">Dashboard</a>
+            <a href="inventory.html">Inventory</a>
+            <a href="reports.html">Reports</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+        <div class="user-info">
+            <span id="currentUser"></span> | <span id="currentLocation"></span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Inventory Dashboard</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Raw Materials</h3>
+                <div class="stat-number" id="totalRawMaterials">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Finished Goods</h3>
+                <div class="stat-number" id="finishedGoods">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Low Stock Items</h3>
+                <div class="stat-number" id="lowStockItems">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Production Orders</h3>
+                <div class="stat-number" id="productionOrders">0</div>
+            </div>
+        </div>
+
+        <div class="dashboard-sections">
+            <div class="section">
+                <h2>Recent Activities</h2>
+                <div id="recentActivities" class="activity-list">
+                    <!-- Activities will be loaded here -->
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Low Stock Alerts</h2>
+                <div id="lowStockAlerts" class="alert-list">
+                    <!-- Alerts will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadDashboardData();
+        });
+    </script>
+</body>
+</html>// Database simulation using localStorage
+class InventoryDB {
+    constructor() {
+        this.initializeDB();
+    }
+
+    initializeDB() {
+        if (!localStorage.getItem('inventoryItems')) {
+            const sampleData = [
+                { id: 1, code: 'RM001', name: 'Steel Sheets', category: 'raw-material', currentStock: 150, minStock: 50, location: 'plant-y', lastUpdated: new Date().toISOString() },
+                { id: 2, code: 'RM002', name: 'Aluminum Rods', category: 'raw-material', currentStock: 25, minStock: 30, location: 'plant-z', lastUpdated: new Date().toISOString() },
+                { id: 3, code: 'FG001', name: 'Engine Components', category: 'finished-goods', currentStock: 80, minStock: 20, location: 'head-office', lastUpdated: new Date().toISOString() },
+                { id: 4, code: 'CP001', name: 'Brake Pads', category: 'components', currentStock: 200, minStock: 100, location: 'plant-y', lastUpdated: new Date().toISOString() }
+            ];
+            localStorage.setItem('inventoryItems', JSON.stringify(sampleData));
+        }
+
+        if (!localStorage.getItem('activities')) {
+            localStorage.setItem('activities', JSON.stringify([]));
+        }
+    }
+
+    getItems() {
+        return JSON.parse(localStorage.getItem('inventoryItems') || '[]');
+    }
+
+    saveItems(items) {
+        localStorage.setItem('inventoryItems', JSON.stringify(items));
+    }
+
+    addActivity(activity) {
+        const activities = JSON.parse(localStorage.getItem('activities') || '[]');
+        activities.unshift({ ...activity, timestamp: new Date().toISOString() });
+        if (activities.length > 50) activities.pop();
+        localStorage.setItem('activities', JSON.stringify(activities));
+    }
+
+    getActivities() {
+        return JSON.parse(localStorage.getItem('activities') || '[]');
+    }
+}
+
+const db = new InventoryDB();
+
+// Authentication
+function login(event) {
+    event.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const location = document.getElementById('location').value;
+
+    if (password === 'Group@8' && username && location) {
+        sessionStorage.setItem('currentUser', username);
+        sessionStorage.setItem('currentLocation', location);
+        window.location.href = 'dashboard.html';
+    } else {
+        alert('Invalid credentials. Password must be "Group@8"');
+    }
+}
+
+function logout() {
+    sessionStorage.clear();
+    window.location.href = 'index.html';
+}
+
+function checkAuth() {
+    if (!sessionStorage.getItem('currentUser')) {
+        window.location.href = 'index.html';
+        return false;
+    }
+    
+    const userElement = document.getElementById('currentUser');
+    const locationElement = document.getElementById('currentLocation');
+    if (userElement) userElement.textContent = sessionStorage.getItem('currentUser');
+    if (locationElement) locationElement.textContent = getLocationName(sessionStorage.getItem('currentLocation'));
+    return true;
+}
+
+function getLocationName(code) {
+    const locations = {
+        'head-office': 'Head Office - City X',
+        'plant-y': 'Manufacturing Plant - City Y',
+        'plant-z': 'Manufacturing Plant - City Z'
+    };
+    return locations[code] || code;
+}
+
+// Dashboard Functions
+function loadDashboardData() {
+    const items = db.getItems();
+    const currentLocation = sessionStorage.getItem('currentLocation');
+    
+    let filteredItems = items;
+    if (currentLocation !== 'head-office') {
+        filteredItems = items.filter(item => item.location === currentLocation);
+    }
+
+    const rawMaterials = filteredItems.filter(item => item.category === 'raw-material').length;
+    const finishedGoods = filteredItems.filter(item => item.category === 'finished-goods').length;
+    const lowStockItems = filteredItems.filter(item => item.currentStock <= item.minStock).length;
+
+    document.getElementById('totalRawMaterials').textContent = rawMaterials;
+    document.getElementById('finishedGoods').textContent = finishedGoods;
+    document.getElementById('lowStockItems').textContent = lowStockItems;
+    document.getElementById('productionOrders').textContent = Math.floor(Math.random() * 10) + 5;
+
+    loadRecentActivities();
+    loadLowStockAlerts();
+}
+
+function loadRecentActivities() {
+    const activities = db.getActivities().slice(0, 5);
+    const container = document.getElementById('recentActivities');
+    
+    if (activities.length === 0) {
+        container.innerHTML = '<div class="activity-item">No recent activities</div>';
+        return;
+    }
+
+    container.innerHTML = activities.map(activity => 
+        `<div class="activity-item">
+            <strong>${activity.action}</strong> - ${activity.item} 
+            <small>(${new Date(activity.timestamp).toLocaleString()})</small>
+        </div>`
+    ).join('');
+}
+
+function loadLowStockAlerts() {
+    const items = db.getItems();
+    const currentLocation = sessionStorage.getItem('currentLocation');
+    
+    let filteredItems = items;
+    if (currentLocation !== 'head-office') {
+        filteredItems = items.filter(item => item.location === currentLocation);
+    }
+
+    const lowStockItems = filteredItems.filter(item => item.currentStock <= item.minStock);
+    const container = document.getElementById('lowStockAlerts');
+    
+    if (lowStockItems.length === 0) {
+        container.innerHTML = '<div class="alert-item">No low stock alerts</div>';
+        return;
+    }
+
+    container.innerHTML = lowStockItems.map(item => 
+        `<div class="alert-item">
+            <strong>${item.name}</strong> (${item.code}) - Stock: ${item.currentStock}/${item.minStock}
+        </div>`
+    ).join('');
+}
+
+// Inventory Functions
+function loadInventoryData() {
+    const items = db.getItems();
+    const currentLocation = sessionStorage.getItem('currentLocation');
+    
+    let filteredItems = items;
+    if (currentLocation !== 'head-office') {
+        filteredItems = items.filter(item => item.location === currentLocation);
+    }
+
+    displayInventoryItems(filteredItems);
+}
+
+function displayInventoryItems(items) {
+    const tbody = document.getElementById('inventoryTableBody');
+    tbody.innerHTML = items.map(item => 
+        `<tr>
+            <td>${item.code}</td>
+            <td>${item.name}</td>
+            <td>${item.category.replace('-', ' ').toUpperCase()}</td>
+            <td>${item.currentStock}</td>
+            <td>${item.minStock}</td>
+            <td>${getLocationName(item.location)}</td>
+            <td>${new Date(item.lastUpdated).toLocaleDateString()}</td>
+            <td>
+                <button onclick="editItem(${item.id})" class="btn-secondary">Edit</button>
+                <button onclick="updateStock(${item.id})" class="btn-primary">Update Stock</button>
+            </td>
+        </tr>`
+    ).join('');
+}
+
+function setupFilters() {
+    const categoryFilter = document.getElementById('categoryFilter');
+    const searchInput = document.getElementById('searchInput');
+
+    categoryFilter.addEventListener('change', filterInventory);
+    searchInput.addEventListener('input', filterInventory);
+}
+
+function filterInventory() {
+    const items = db.getItems();
+    const currentLocation = sessionStorage.getItem('currentLocation');
+    const category = document.getElementById('categoryFilter').value;
+    const search = document.getElementById('searchInput').value.toLowerCase();
+
+    let filteredItems = items;
+    if (currentLocation !== 'head-office') {
+        filteredItems = items.filter(item => item.location === currentLocation);
+    }
+
+    if (category) {
+        filteredItems = filteredItems.filter(item => item.category === category);
+    }
+
+    if (search) {
+        filteredItems = filteredItems.filter(item => 
+            item.name.toLowerCase().includes(search) || 
+            item.code.toLowerCase().includes(search)
+        );
+    }
+
+    displayInventoryItems(filteredItems);
+}
+
+function showAddItemModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Item';
+    document.getElementById('itemForm').reset();
+    document.getElementById('itemModal').style.display = 'block';
+}
+
+function editItem(id) {
+    const items = db.getItems();
+    const item = items.find(i => i.id === id);
+    
+    if (item) {
+        document.getElementById('modalTitle').textContent = 'Edit Item';
+        document.getElementById('itemCode').value = item.code;
+        document.getElementById('itemName').value = item.name;
+        document.getElementById('category').value = item.category;
+        document.getElementById('currentStock').value = item.currentStock;
+        document.getElementById('minStock').value = item.minStock;
+        document.getElementById('itemLocation').value = item.location;
+        
+        document.getElementById('itemForm').dataset.editId = id;
+        document.getElementById('itemModal').style.display = 'block';
+    }
+}
+
+function updateStock(id) {
+    const newStock = prompt('Enter new stock quantity:');
+    if (newStock !== null && !isNaN(newStock)) {
+        const items = db.getItems();
+        const itemIndex = items.findIndex(i => i.id === id);
+        
+        if (itemIndex !== -1) {
+            const oldStock = items[itemIndex].currentStock;
+            items[itemIndex].currentStock = parseInt(newStock);
+            items[itemIndex].lastUpdated = new Date().toISOString();
+            
+            db.saveItems(items);
+            db.addActivity({
+                action: 'Stock Updated',
+                item: ${items[itemIndex].name} (${items[itemIndex].code}),
+                details: From ${oldStock} to ${newStock}
+            });
+            
+            loadInventoryData();
+        }
+    }
+}
+
+function closeModal() {
+    document.getElementById('itemModal').style.display = 'none';
+    document.getElementById('itemForm').reset();
+    delete document.getElementById('itemForm').dataset.editId;
+}
+
+function saveItem(event) {
+    event.preventDefault();
+    
+    const formData = {
+        code: document.getElementById('itemCode').value,
+        name: document.getElementById('itemName').value,
+        category: document.getElementById('category').value,
+        currentStock: parseInt(document.getElementById('currentStock').value),
+        minStock: parseInt(document.getElementById('minStock').value),
+        location: document.getElementById('itemLocation').value,
+        lastUpdated: new Date().toISOString()
+    };
+
+    const items = db.getItems();
+    const editId = document.getElementById('itemForm').dataset.editId;
+
+    if (editId) {
+        const itemIndex = items.findIndex(i => i.id === parseInt(editId));
+        if (itemIndex !== -1) {
+            items[itemIndex] = { ...items[itemIndex], ...formData };
+            db.addActivity({
+                action: 'Item Updated',
+                item: ${formData.name} (${formData.code})
+            });
+        }
+    } else {
+        const newItem = {
+            id: Math.max(...items.map(i => i.id), 0) + 1,
+            ...formData
+        };
+        items.push(newItem);
+        db.addActivity({
+            action: 'Item Added',
+            item: ${formData.name} (${formData.code})
+        });
+    }
+
+    db.saveItems(items);
+    closeModal();
+    loadInventoryData();
+}
+
+// Reports Functions
+function initializeReports() {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    document.getElementById('reportMonth').value = currentMonth;
+    generateReport();
+}
+
+function generateReport() {
+    const reportType = document.getElementById('reportType').value;
+    const items = db.getItems();
+    const currentLocation = sessionStorage.getItem('currentLocation');
+
+    let filteredItems = items;
+    if (currentLocation !== 'head-office') {
+        filteredItems = items.filter(item => item.location === currentLocation);
+    }
+
+    updateReportSummary(filteredItems);
+
+    switch (reportType) {
+        case 'monthly':
+            generateMonthlyReport(filteredItems);
+            break;
+        case 'low-stock':
+            generateLowStockReport(filteredItems);
+            break;
+        case 'location':
+            generateLocationReport(items);
+            break;
+        case 'category':
+            generateCategoryReport(filteredItems);
+            break;
+    }
+}
+
+function updateReportSummary(items) {
+    const totalItems = items.length;
+    const totalValue = items.reduce((sum, item) => sum + (item.currentStock * 10), 0); // Assuming $10 per unit
+    const lowStockCount = items.filter(item => item.currentStock <= item.minStock).length;
+
+    document.getElementById('totalItems').textContent = totalItems;
+    document.getElementById('totalValue').textContent = $${totalValue.toLocaleString()};
+    document.getElementById('lowStockCount').textContent = lowStockCount;
+}
+
+function generateMonthlyReport(items) {
+    const thead = document.getElementById('reportTableHead');
+    const tbody = document.getElementById('reportTableBody');
+
+    thead.innerHTML = `
+        <tr>
+            <th>Item Code</th>
+            <th>Item Name</th>
+            <th>Category</th>
+            <th>Current Stock</th>
+            <th>Min Stock</th>
+            <th>Status</th>
+        </tr>
+    `;
+
+    tbody.innerHTML = items.map(item => 
+        `<tr>
+            <td>${item.code}</td>
+            <td>${item.name}</td>
+            <td>${item.category.replace('-', ' ').toUpperCase()}</td>
+            <td>${item.currentStock}</td>
+            <td>${item.minStock}</td>
+            <td>${item.currentStock <= item.minStock ? 'LOW STOCK' : 'OK'}</td>
+        </tr>`
+    ).join('');
+}
+
+function generateLowStockReport(items) {
+    const lowStockItems = items.filter(item => item.currentStock <= item.minStock);
+    const thead = document.getElementById('reportTableHead');
+    const tbody = document.getElementById('reportTableBody');
+
+    thead.innerHTML = `
+        <tr>
+            <th>Item Code</th>
+            <th>Item Name</th>
+            <th>Current Stock</th>
+            <th>Min Stock</th>
+            <th>Shortage</th>
+            <th>Location</th>
+        </tr>
+    `;
+
+    tbody.innerHTML = lowStockItems.map(item => 
+        `<tr>
+            <td>${item.code}</td>
+            <td>${item.name}</td>
+            <td>${item.currentStock}</td>
+            <td>${item.minStock}</td>
+            <td>${item.minStock - item.currentStock}</td>
+            <td>${getLocationName(item.location)}</td>
+        </tr>`
+    ).join('');
+}
+
+function generateLocationReport(items) {
+    const locationStats = {};
+    items.forEach(item => {
+        if (!locationStats[item.location]) {
+            locationStats[item.location] = { total: 0, lowStock: 0 };
+        }
+        locationStats[item.location].total++;
+        if (item.currentStock <= item.minStock) {
+            locationStats[item.location].lowStock++;
+        }
+    });
+
+    const thead = document.getElementById('reportTableHead');
+    const tbody = document.getElementById('reportTableBody');
+
+    thead.innerHTML = `
+        <tr>
+            <th>Location</th>
+            <th>Total Items</th>
+            <th>Low Stock Items</th>
+            <th>Stock Health</th>
+        </tr>
+    `;
+
+    tbody.innerHTML = Object.entries(locationStats).map(([location, stats]) => 
+        `<tr>
+            <td>${getLocationName(location)}</td>
+            <td>${stats.total}</td>
+            <td>${stats.lowStock}</td>
+            <td>${((stats.total - stats.lowStock) / stats.total * 100).toFixed(1)}%</td>
+        </tr>`
+    ).join('');
+}
+
+function generateCategoryReport(items) {
+    const categoryStats = {};
+    items.forEach(item => {
+        if (!categoryStats[item.category]) {
+            categoryStats[item.category] = { total: 0, totalStock: 0 };
+        }
+        categoryStats[item.category].total++;
+        categoryStats[item.category].totalStock += item.currentStock;
+    });
+
+    const thead = document.getElementById('reportTableHead');
+    const tbody = document.getElementById('reportTableBody');
+
+    thead.innerHTML = `
+        <tr>
+            <th>Category</th>
+            <th>Total Items</th>
+            <th>Total Stock</th>
+            <th>Average Stock</th>
+        </tr>
+    `;
+
+    tbody.innerHTML = Object.entries(categoryStats).map(([category, stats]) => 
+        `<tr>
+            <td>${category.replace('-', ' ').toUpperCase()}</td>
+            <td>${stats.total}</td>
+            <td>${stats.totalStock}</td>
+            <td>${(stats.totalStock / stats.total).toFixed(1)}</td>
+        </tr>`
+    ).join('');
+}
+
+function exportReport() {
+    const table = document.getElementById('reportTable');
+    let csv = '';
+    
+    // Headers
+    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent);
+    csv += headers.join(',') + '\n';
+    
+    // Rows
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    rows.forEach(row => {
+        const cells = Array.from(row.querySelectorAll('td')).map(td => td.textContent);
+        csv += cells.join(',') + '\n';
+    });
+    
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = inventory_report_${new Date().toISOString().slice(0, 10)}.csv;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Login form
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', login);
+    }
+
+    // Item form
+    const itemForm = document.getElementById('itemForm');
+    if (itemForm) {
+        itemForm.addEventListener('submit', saveItem);
+    }
+
+    // Modal close on outside click
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('itemModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+});* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+/* Login Styles */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.login-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-form h1 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.login-form h2 {
+    text-align: center;
+    color: #666;
+    margin-bottom: 2rem;
+    font-size: 1.2rem;
+}
+
+/* Navigation */
+.navbar {
+    background: #2c3e50;
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.nav-links {
+    display: flex;
+    gap: 2rem;
+}
+
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.nav-links a:hover, .nav-links a.active {
+    background-color: #34495e;
+}
+
+.user-info {
+    font-size: 0.9rem;
+    color: #bdc3c7;
+}
+
+/* Container */
+.container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* Buttons */
+button, .btn-primary, .btn-secondary {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+}
+
+button, .btn-primary {
+    background-color: #667eea;
+    color: white;
+}
+
+button:hover, .btn-primary:hover {
+    background-color: #5a6fd8;
+}
+
+.btn-secondary {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #7f8c8d;
+}
+
+/* Dashboard Stats */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-card h3 {
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+/* Dashboard Sections */
+.dashboard-sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.section h2 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+/* Inventory Controls */
+.inventory-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    background: white;
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.filter-controls {
+    display: flex;
+    gap: 1rem;
+}
+
+.filter-controls select, .filter-controls input {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+/* Tables */
+.inventory-table, .report-table {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    color: #333;
+}
+
+tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 2rem;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 500px;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    font-size: 2rem;
+    cursor: pointer;
+    color: #999;
+}
+
+.close:hover {
+    color: #333;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+}
+
+/* Reports */
+.report-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: end;
+    margin-bottom: 2rem;
+    background: white;
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.report-content {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.summary-item {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 5px;
+}
+
+.summary-item h3 {
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.summary-item span {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+/* Activity and Alert Lists */
+.activity-list, .alert-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.activity-item, .alert-item {
+    padding: 0.75rem;
+    border-left: 4px solid #667eea;
+    background: #f8f9fa;
+    margin-bottom: 0.5rem;
+    border-radius: 0 5px 5px 0;
+}
+
+.alert-item {
+    border-left-color: #e74c3c;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dashboard-sections {
+        grid-template-columns: 1fr;
+    }
+    
+    .inventory-controls {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .filter-controls {
+        width: 100%;
+    }
+    
+    .nav-links {
+        display: none;
+    }
+    
+    .report-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
